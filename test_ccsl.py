@@ -58,6 +58,15 @@ class TestGenerateScript(unittest.TestCase):
         s = self._script(["model"])
         self.assertNotIn("cost", s.split("parts =")[1])
 
+    def test_session_reads_name_then_transcript(self):
+        s = self._script(["session"])
+        self.assertIn("session_name", s)
+        self.assertIn("transcript_path", s)
+
+    def test_session_absent_when_not_enabled(self):
+        s = self._script(["model"])
+        self.assertNotIn("transcript_path", s)
+
 
 class TestUpdateSettings(unittest.TestCase):
     def test_writes_statusline_key(self):

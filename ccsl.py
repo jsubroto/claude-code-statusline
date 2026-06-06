@@ -54,7 +54,8 @@ FIELDS = [
     Field("context", "📊", "Context", _ctx),
     Field("cost", "💰", "Cost", str(_SAMPLE["cost"]["total_cost_usd"])),
     Field("git", "🌿", "Git branch", _SAMPLE["worktree"]["original_branch"]),
-    Field("duration", "⏱️", "Session duration", _dur),
+    Field("duration", "⏳", "Session duration", _dur),
+    Field("session", "🔖", "Session name", "improve statusline code"),
 ]
 
 Theme = namedtuple("Theme", ["chars", "ansi", "accent_pair"])
@@ -88,7 +89,7 @@ def render_preview(enabled_keys, theme):
 
 
 def draw(stdscr, widget_enabled, widget_cursor, theme_cursor, focus):
-    stdscr.clear()
+    stdscr.erase()
     h, w = stdscr.getmaxyx()
 
     row = 0
@@ -244,6 +245,28 @@ except Exception:
     branch = ""
 """
 
+    session_block = ""
+    if "session" in enabled:
+        session_block = """session = (data.get("session_name") or "").strip()
+if not session:
+    try:
+        with open(data.get("transcript_path") or "") as fh:
+            for line in fh:
+                o = json.loads(line)
+                if o.get("type") != "user" or o.get("isSidechain") or o.get("isMeta"):
+                    continue
+                c = (o.get("message") or {}).get("content")
+                if isinstance(c, list):
+                    c = next((b.get("text", "") for b in c if isinstance(b, dict) and b.get("type") == "text"), "")
+                if isinstance(c, str) and c.strip():
+                    session = " ".join(c.split())
+                    break
+    except Exception:
+        session = ""
+if len(session) > 40:
+    session = session[:39].rstrip() + "…"
+"""
+
     imports = (
         "import json, os, sys"
         if "git" not in enabled
@@ -273,6 +296,8 @@ except Exception:
                 lines.append(f'parts.append(f"\\033[93m{icon} ${{cost:.2f}}\\033[0m")')
             else:
                 lines.append(f'parts.append(f"{icon} ${{cost:.2f}}")')
+        elif key == "session":
+            lines.append(f'parts.append(f"{icon} {{session}}" if session else None)')
         elif key == "git":
             lines.append(f'parts.append(f"{icon} {{branch}}" if branch else None)')
         elif key == "duration":
@@ -292,7 +317,7 @@ model  = (data.get("model") or {{}}).get("display_name", "?")
 cost   = (data.get("cost") or {{}}).get("total_cost_usd", 0) or 0
 dur_m  = int(((data.get("cost") or {{}}).get("total_duration_ms", 0) or 0) / 60000)
 dirname = os.path.basename(data.get("cwd", "") or "")
-{git_block}
+{git_block}{session_block}
 parts = []
 {chr(10).join(lines)}
 print("{sep}".join(p for p in parts if p))

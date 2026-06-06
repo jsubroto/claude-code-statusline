@@ -10,14 +10,15 @@ Writes a tiny Python script to `~/.claude/statusline.py` and wires it into `~/.c
 
 **Fields**
 
-| Field         | Example                      |
-| ------------- | ---------------------------- |
-| 🤖 Model      | `[Opus]`                     |
-| 📁 Directory  | `📁 directory`               |
-| 📊 Context    | `██████░░░░ 130k/200k (65%)` |
-| 💰 Cost       | `💰 $0.01`                   |
-| 🌿 Git branch | `🌿 main`                    |
-| ⏱️ Duration   | `⏱️ 0m`                      |
+| Field           | Example                        |
+| --------------- | ------------------------------ |
+| 🤖 Model        | `[Opus]`                       |
+| 📁 Directory    | `📁 directory`                 |
+| 📊 Context      | `██████░░░░ 130k/200k (65%)`   |
+| 💰 Cost         | `💰 $0.01`                     |
+| 🌿 Git branch   | `🌿 main`                      |
+| ⏳ Duration     | `⏳ 0m`                        |
+| 🔖 Session name | `🔖 improve statusline code`   |
 
 **Themes:** `default` · `minimal` · `neon` · `pastel` · `mono`
 
