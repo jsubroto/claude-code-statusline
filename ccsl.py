@@ -88,60 +88,34 @@ def render_preview(enabled_keys, theme):
     return "  │  ".join(parts) if parts else "(nothing selected)"
 
 
-def draw(stdscr, widget_enabled, widget_cursor, theme_cursor, focus):
-    stdscr.erase()
-    h, w = stdscr.getmaxyx()
+def _enabled_keys(widget_enabled):
+    return [f.key for f, on in zip(FIELDS, widget_enabled) if on]
 
-    row = 0
-    stdscr.addstr(
-        row, 2, "Claude Code Status Line", curses.color_pair(1) | curses.A_BOLD
-    )
-    stdscr.addstr(row + 1, 2, "─" * (w - 4), curses.color_pair(1))
-    row += 3
 
-    stdscr.addstr(row, 2, "FIELDS", curses.color_pair(4) | curses.A_BOLD)
-    stdscr.addstr(
-        row,
-        12,
-        "Space: toggle  ↑↓: navigate  Tab: switch section",
-        curses.color_pair(2),
-    )
-    row += 1
-    for i, (_, icon, label, _) in enumerate(FIELDS):
+def _safe_addstr(stdscr, *args):
+    try:
+        stdscr.addstr(*args)
+    except curses.error:
+        pass
+
+
+def _draw_section(stdscr, row, title, items, focused_idx, focus_key, focus):
+    _safe_addstr(stdscr, row, 2, title, curses.color_pair(4) | curses.A_BOLD)
+    for i, (label, selected) in enumerate(items):
         attr = (
             curses.color_pair(3)
-            if (focus == "fields" and i == widget_cursor)
+            if (focus == focus_key and i == focused_idx)
             else curses.color_pair(2)
         )
-        try:
-            stdscr.addstr(
-                row + i,
-                2,
-                f"  {'◉' if widget_enabled[i] else '○'} {icon}  {label}",
-                attr,
-            )
-        except curses.error:
-            pass
-    row += len(FIELDS) + 1
-
-    stdscr.addstr(row, 2, "THEME", curses.color_pair(4) | curses.A_BOLD)
-    row += 1
-    for i, name in enumerate(THEMES):
-        attr = (
-            curses.color_pair(3)
-            if (focus == "themes" and i == theme_cursor)
-            else curses.color_pair(2)
+        _safe_addstr(
+            stdscr, row + 1 + i, 2, f"  {'◉' if selected else '○'} {label}", attr
         )
-        try:
-            stdscr.addstr(
-                row + i, 2, f"  {'◉' if i == theme_cursor else '○'} {name}", attr
-            )
-        except curses.error:
-            pass
-    row += len(THEMES) + 1
+    return row + 1 + len(items) + 1
 
-    stdscr.addstr(row, 2, "PREVIEW", curses.color_pair(4) | curses.A_BOLD)
-    enabled_keys = [FIELDS[i][0] for i in range(len(FIELDS)) if widget_enabled[i]]
+
+def _draw_preview(stdscr, row, widget_enabled, theme_cursor):
+    _safe_addstr(stdscr, row, 2, "PREVIEW", curses.color_pair(4) | curses.A_BOLD)
+    enabled_keys = _enabled_keys(widget_enabled)
     theme_name = list(THEMES)[theme_cursor]
     bf, be = THEMES[theme_name].chars
     sep_cp = curses.color_pair(THEMES[theme_name].accent_pair)
@@ -151,11 +125,8 @@ def draw(stdscr, widget_enabled, widget_cursor, theme_cursor, focus):
         if key not in enabled_keys:
             continue
         if not first:
-            try:
-                stdscr.addstr(row + 1, x, "  │  ", sep_cp)
-                x += _cols("  │  ")
-            except curses.error:
-                pass
+            _safe_addstr(stdscr, row + 1, x, "  │  ", sep_cp)
+            x += _cols("  │  ")
         first = False
         match key:
             case "model":
@@ -177,15 +148,40 @@ def draw(stdscr, widget_enabled, widget_cursor, theme_cursor, focus):
                 seg, cp = f"{icon} {sample}m", curses.color_pair(2)
             case _:
                 seg, cp = f"{icon} {sample}", curses.color_pair(2)
-        try:
-            stdscr.addstr(row + 1, x, seg, cp)
-            x += _cols(seg)
-        except curses.error:
-            pass
-    try:
-        stdscr.addstr(h - 1, 2, " Enter: Install   q: Quit ", curses.color_pair(3))
-    except curses.error:
-        pass
+        _safe_addstr(stdscr, row + 1, x, seg, cp)
+        x += _cols(seg)
+
+
+def draw(stdscr, widget_enabled, widget_cursor, theme_cursor, focus):
+    stdscr.erase()
+    h, w = stdscr.getmaxyx()
+
+    _safe_addstr(
+        stdscr, 0, 2, "Claude Code Status Line", curses.color_pair(1) | curses.A_BOLD
+    )
+    _safe_addstr(stdscr, 1, 2, "─" * (w - 4), curses.color_pair(1))
+
+    row = 3
+    _safe_addstr(
+        stdscr,
+        row,
+        12,
+        "Space: toggle  ↑↓: navigate  Tab: switch section",
+        curses.color_pair(2),
+    )
+    field_items = [
+        (f"{icon}  {label}", widget_enabled[i])
+        for i, (_, icon, label, _) in enumerate(FIELDS)
+    ]
+    row = _draw_section(stdscr, row, "FIELDS", field_items, widget_cursor, "fields", focus)
+
+    theme_items = [(name, i == theme_cursor) for i, name in enumerate(THEMES)]
+    row = _draw_section(stdscr, row, "THEME", theme_items, theme_cursor, "themes", focus)
+
+    _draw_preview(stdscr, row, widget_enabled, theme_cursor)
+    _safe_addstr(
+        stdscr, h - 1, 2, " Enter: Install   q: Quit ", curses.color_pair(3)
+    )
     stdscr.refresh()
 
 
@@ -224,10 +220,7 @@ def run_ui(stdscr):
         elif key == ord(" ") and focus == "fields":
             widget_enabled[widget_cursor] = not widget_enabled[widget_cursor]
         elif key in (curses.KEY_ENTER, ord("\n"), ord("\r")):
-            enabled_keys = [
-                FIELDS[i][0] for i in range(len(FIELDS)) if widget_enabled[i]
-            ]
-            if enabled_keys:
+            if enabled_keys := _enabled_keys(widget_enabled):
                 return enabled_keys, list(THEMES)[theme_cursor]
 
 
