@@ -207,16 +207,12 @@ def run_ui(stdscr):
             return None
         elif key == ord("\t"):
             focus = "themes" if focus == "fields" else "fields"
-        elif key == curses.KEY_UP:
+        elif key in (curses.KEY_UP, curses.KEY_DOWN):
+            delta = -1 if key == curses.KEY_UP else 1
             if focus == "fields":
-                widget_cursor = max(0, widget_cursor - 1)
+                widget_cursor = max(0, min(len(FIELDS) - 1, widget_cursor + delta))
             else:
-                theme_cursor = max(0, theme_cursor - 1)
-        elif key == curses.KEY_DOWN:
-            if focus == "fields":
-                widget_cursor = min(len(FIELDS) - 1, widget_cursor + 1)
-            else:
-                theme_cursor = min(len(THEMES) - 1, theme_cursor + 1)
+                theme_cursor = max(0, min(len(THEMES) - 1, theme_cursor + delta))
         elif key == ord(" ") and focus == "fields":
             widget_enabled[widget_cursor] = not widget_enabled[widget_cursor]
         elif key in (curses.KEY_ENTER, ord("\n"), ord("\r")):
